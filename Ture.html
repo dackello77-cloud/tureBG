@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Ture App</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+
+    .app {
+      max-width: 430px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 18px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .top-bar h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    }
+
+    h2 {
+      font-size: 19px;
+      margin-top: 0;
+      margin-bottom: 14px;
+    }
+
+    h3 {
+      font-size: 16px;
+      margin-top: 18px;
+      margin-bottom: 10px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid #334155;
+      background: #020617;
+      color: #fff;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      color: white;
+      background: #2563eb;
+      margin-top: 6px;
+      cursor: pointer;
+    }
+
+    .login-small {
+      width: auto;
+      padding: 10px 16px;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .secondary {
+      background: #334155;
+    }
+
+    .green {
+      background: #16a34a;
+    }
+
+    .orange {
+      background: #ea580c;
+    }
+
+    .logout {
+      background: #dc2626;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .week-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .week-bar button {
+      flex: 1;
+      padding: 11px;
+      font-size: 14px;
+    }
+
+    .week-label {
+      text-align: center;
+      font-size: 14px;
+      color: #cbd5e1;
+      margin-bottom: 4px;
+    }
+
+    .nav {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .tour-item,
+    .company-item {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .tour-company {
+      font-size: 17px;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .tour-details {
+      font-size: 14px;
+      color: #cbd5e1;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    .company-item {
+      font-size: 15px;
+      color: #e5e7eb;
+    }
+
+    .total-box {
+      background: #052e16;
+      border: 1px solid #16a34a;
+      color: #bbf7d0;
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      margin-top: 12px;
+    }
+
+    .small-text {
+      font-size: 13px;
+      color: #94a3b8;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+
+    <div class="top-bar">
+      <h1>Ture App</h1>
+      <button id="loginBtn" class="login-small" onclick="openLogin()">Login</button>
+      <button id="logoutBtn" class="login-small logout hidden" onclick="logout()">Logout</button>
+    </div>
+
+    <div id="loginBox" class="card hidden">
+      <h2>Admin login</h2>
+      <input id="username" placeholder="Username" />
+      <input id="password" type="password" placeholder="Password" />
+      <button onclick="login()">Login</button>
+    </div>
+
+    <div class="card">
+      <div class="week-bar">
+        <button class="secondary" onclick="changeWeek(-1)">Prethodna</button>
+        <button class="secondary" onclick="changeWeek(1)">Sledeća</button>
+      </div>
+      <div id="weekLabel" class="week-label"></div>
+    </div>
+
+    <div id="adminButtons" class="card hidden">
+      <div class="nav">
+        <button class="green" onclick="showSection('companySection')">Dodaj kompaniju</button>
+        <button class="orange" onclick="showSection('tourSection')">Unos tura</button>
+      </div>
+    </div>
+
+    <div id="companySection" class="card hidden">
+      <h2>Dodaj kompaniju</h2>
+
+      <input id="companyName" placeholder="Naziv kompanije" />
+      <button onclick="addCompany()">Sačuvaj kompaniju</button>
+
+      <h3>Postojeće kompanije</h3>
+      <div id="companyList"></div>
+    </div>
+
+    <div id="tourSection" class="card hidden">
+      <h2>Unos tura</h2>
+
+      <select id="tourCompany"></select>
+      <input id="tourCount" type="number" placeholder="Broj tura" />
+      <input id="tourPrice" type="number" placeholder="Cena po turi" />
+
+      <button onclick="addTour()">Sačuvaj turu</button>
+    </div>
+
+    <div class="card">
+      <h2>Pregled tura</h2>
+      <div id="tourList"></div>
+      <div id="totalBox" class="total-box">Ukupno: $0</div>
+    </div>
+
+  </div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbx8NayFQk1zsnIiLCcFDSDmJGuXTZUcL8R1kq_usEwVEkrDwy50QTjo6JDXFibYvIFI/exec";
+    const CACHE_BUSTER = Date.now();
+
+    let weekOffset = 0;
+    let loggedIn = localStorage.getItem("loggedIn") === "yes";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      updateLoginView();
+      loadData();
+    });
+
+    function openLogin() {
+      document.getElementById("loginBox").classList.toggle("hidden");
+    }
+
+    async function login() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if (!username || !password) {
+        alert("Unesite username i password");
+        return;
+      }
+
+      const res = await fetch(`${API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&v=${CACHE_BUSTER}`);
+      const data = await res.json();
+
+      if (data.success) {
+        localStorage.setItem("loggedIn", "yes");
+        loggedIn = true;
+
+        document.getElementById("loginBox").classList.add("hidden");
+        updateLoginView();
+        loadData();
+      } else {
+        alert(data.message || "Login nije uspeo");
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("loggedIn");
+      loggedIn = false;
+
+      document.getElementById("companySection").classList.add("hidden");
+      document.getElementById("tourSection").classList.add("hidden");
+
+      updateLoginView();
+    }
+
+    function updateLoginView() {
+      if (loggedIn) {
+        document.getElementById("loginBtn").classList.add("hidden");
+        document.getElementById("logoutBtn").classList.remove("hidden");
+        document.getElementById("adminButtons").classList.remove("hidden");
+      } else {
+        document.getElementById("loginBtn").classList.remove("hidden");
+        document.getElementById("logoutBtn").classList.add("hidden");
+        document.getElementById("adminButtons").classList.add("hidden");
+      }
+    }
+
+    function showSection(id) {
+      document.getElementById("companySection").classList.add("hidden");
+      document.getElementById("tourSection").classList.add("hidden");
+      document.getElementById(id).classList.remove("hidden");
+    }
+
+    async function addCompany() {
+      if (!loggedIn) return alert("Morate biti ulogovani");
+
+      const company = document.getElementById("companyName").value.trim();
+
+      if (!company) {
+        alert("Unesite naziv kompanije");
+        return;
+      }
+
+      const exists = Array.from(document.getElementById("tourCompany").options)
+        .some(option => option.value.toLowerCase() === company.toLowerCase());
+
+      if (exists) {
+        alert("Ova kompanija već postoji");
+        return;
+      }
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "addCompany",
+            company: company
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          document.getElementById("companyName").value = "";
+          alert("Kompanija je sačuvana");
+          loadData();
+        } else {
+          alert("Greška: " + data.message);
+        }
+
+      } catch (err) {
+        alert("Greška pri čuvanju: " + err.message);
+      }
+    }
+
+    async function addTour() {
+      if (!loggedIn) return alert("Morate biti ulogovani");
+
+      const company = document.getElementById("tourCompany").value;
+      const tours = document.getElementById("tourCount").value;
+      const price = document.getElementById("tourPrice").value;
+
+      if (!company || !tours || price === "") {
+        alert("Popunite sva polja");
+        return;
+      }
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "addTour",
+            company,
+            tours,
+            price
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          document.getElementById("tourCount").value = "";
+          document.getElementById("tourPrice").value = "";
+          alert("Tura je sačuvana");
+          loadData();
+        } else {
+          alert("Greška: " + data.message);
+        }
+
+      } catch (err) {
+        alert("Greška pri čuvanju ture: " + err.message);
+      }
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch(`${API_URL}?action=getData&weekOffset=${weekOffset}&v=${Date.now()}`);
+        const data = await res.json();
+
+        if (!data.success) {
+          alert("Greška: " + data.message);
+          return;
+        }
+
+        document.getElementById("weekLabel").innerText =
+          `${data.weekStart} do ${data.weekEnd}`;
+
+        const select = document.getElementById("tourCompany");
+        select.innerHTML = "";
+
+        data.companies.forEach(company => {
+          if (company) {
+            const option = document.createElement("option");
+            option.value = company;
+            option.textContent = company;
+            select.appendChild(option);
+          }
+        });
+
+        const companyList = document.getElementById("companyList");
+        if (companyList) {
+          companyList.innerHTML = "";
+
+          if (data.companies.length === 0) {
+            companyList.innerHTML = `<p class="small-text">Nema unetih kompanija.</p>`;
+          }
+
+          data.companies.forEach(company => {
+            companyList.innerHTML += `
+              <div class="company-item">${company}</div>
+            `;
+          });
+        }
+
+        const list = document.getElementById("tourList");
+        list.innerHTML = "";
+
+        let total = 0;
+
+        if (!data.tours || data.tours.length === 0) {
+          list.innerHTML = `<p class="small-text">Nema unetih tura za ovu nedelju.</p>`;
+          document.getElementById("totalBox").innerText = `Ukupno: $0`;
+          return;
+        }
+
+        const grouped = {};
+
+        data.tours.forEach(t => {
+          const company = t.company;
+
+          if (!grouped[company]) {
+            grouped[company] = {
+              company: company,
+              tours: 0,
+              total: 0
+            };
+          }
+
+          grouped[company].tours += Number(t.tours || 0);
+          grouped[company].total += Number(t.total || 0);
+        });
+
+        Object.values(grouped).forEach(t => {
+          total += Number(t.total || 0);
+
+          list.innerHTML += `
+            <div class="tour-item">
+              <div class="tour-company">${t.company}</div>
+              <div class="tour-details">
+                Ukupan broj tura: ${t.tours}<br>
+                Ukupno za kompaniju: $${t.total}
+              </div>
+            </div>
+          `;
+        });
+
+        document.getElementById("totalBox").innerText = `Ukupno: $${total}`;
+
+      } catch (err) {
+        alert("Greška pri učitavanju: " + err.message);
+      }
+    }
+
+    function changeWeek(direction) {
+      weekOffset += direction;
+      loadData();
+    }
+  </script>
+</body>
+</html>
