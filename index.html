@@ -122,7 +122,7 @@
     .tour-company {
       font-size: 17px;
       font-weight: bold;
-      color: #fff;
+      color: #facc15;
     }
 
     .tour-details {
@@ -139,20 +139,20 @@
     }
 
     .day-row {
-      background: #0f172a;
-      border: 1px solid #1e293b;
-      border-radius: 12px;
-      padding: 10px;
-      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #1e293b;
       color: #cbd5e1;
       font-size: 14px;
     }
 
     .day-head {
+      width: 100%;
       display: flex;
       justify-content: space-between;
       gap: 10px;
-      margin-bottom: 8px;
     }
 
     .day-head strong { color: white; }
@@ -234,7 +234,10 @@
     </div>
 
     <div id="companySection" class="card hidden">
-      <h2>Dodaj kompaniju</h2>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px;">
+        <h2 style="margin:0;">Dodaj kompaniju</h2>
+        <button class="login-small secondary" onclick="closeSection('companySection')">Zatvori</button>
+      </div>
       <input id="companyName" placeholder="Naziv kompanije" />
       <button onclick="addCompany()">Sačuvaj kompaniju</button>
 
@@ -243,7 +246,10 @@
     </div>
 
     <div id="tourSection" class="card hidden">
-      <h2 id="tourFormTitle">Unos / izmena tura</h2>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px;">
+        <h2 id="tourFormTitle" style="margin:0;">Unos / izmena tura</h2>
+        <button class="login-small secondary" onclick="closeSection('tourSection')">Zatvori</button>
+      </div>
 
       <div id="formStatus" class="status-box">
         Izaberite kompaniju i datum. Ako postoji tura za taj dan, biće automatski učitana.
@@ -257,6 +263,7 @@
       <input id="tourPrice" type="number" placeholder="Cena po turi u dinarima" />
 
       <button id="saveTourBtn" onclick="saveTour()">Sačuvaj turu</button>
+      <button id="deleteSelectedBtn" class="delete-btn hidden" onclick="deleteSelectedTour()">Obriši izabranu turu</button>
       <button id="cancelEditBtn" class="secondary hidden" onclick="cancelEdit()">Otkaži izmenu</button>
     </div>
 
@@ -348,6 +355,13 @@
       }
     }
 
+    function closeSection(id) {
+      document.getElementById(id).classList.add("hidden");
+      if (id === "tourSection") {
+        cancelEdit();
+      }
+    }
+
     function todayDate() {
       const d = new Date();
       const y = d.getFullYear();
@@ -419,6 +433,7 @@
         document.getElementById("tourFormTitle").innerText = "Izmena postojeće ture";
         document.getElementById("saveTourBtn").innerText = "Sačuvaj izmenu";
         document.getElementById("cancelEditBtn").classList.remove("hidden");
+        document.getElementById("deleteSelectedBtn").classList.remove("hidden");
         document.getElementById("formStatus").innerText = "Pronađena je postojeća tura za izabrani datum. Možete je izmeniti.";
       } else {
         document.getElementById("editRow").value = "";
@@ -428,6 +443,7 @@
         document.getElementById("tourFormTitle").innerText = "Unos nove ture";
         document.getElementById("saveTourBtn").innerText = "Sačuvaj novu turu";
         document.getElementById("cancelEditBtn").classList.add("hidden");
+        document.getElementById("deleteSelectedBtn").classList.add("hidden");
         document.getElementById("formStatus").innerText = "Nema ture za izabrani datum. Možete uneti novu.";
       }
     }
@@ -490,6 +506,7 @@
       document.getElementById("tourFormTitle").innerText = "Izmena postojeće ture";
       document.getElementById("saveTourBtn").innerText = "Sačuvaj izmenu";
       document.getElementById("cancelEditBtn").classList.remove("hidden");
+      document.getElementById("deleteSelectedBtn").classList.remove("hidden");
       document.getElementById("formStatus").innerText = "Menjate izabranu turu.";
 
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -503,7 +520,14 @@
       document.getElementById("tourFormTitle").innerText = "Unos / izmena tura";
       document.getElementById("saveTourBtn").innerText = "Sačuvaj turu";
       document.getElementById("cancelEditBtn").classList.add("hidden");
+      document.getElementById("deleteSelectedBtn").classList.add("hidden");
       document.getElementById("formStatus").innerText = "Izaberite kompaniju i datum. Ako postoji tura za taj dan, biće automatski učitana.";
+    }
+
+    async function deleteSelectedTour() {
+      const row = document.getElementById("editRow").value;
+      if (!row) return alert("Nema izabrane ture za brisanje");
+      await deleteTour(row);
     }
 
     async function deleteTour(row) {
@@ -612,10 +636,8 @@
         });
 
         Object.values(grouped)
-
-  .sort((a, b) => Number(b.tours || 0) - Number(a.tours || 0))
-
-  .forEach((companyData, index) => {
+          .sort((a, b) => Number(b.tours || 0) - Number(a.tours || 0))
+          .forEach((companyData, index) => {
           total += Number(companyData.total || 0);
 
           let daysHtml = "";
@@ -623,29 +645,10 @@
           Object.keys(companyData.days).sort().forEach(day => {
             let dayTours = 0;
             let dayTotal = 0;
-            let rowsHtml = "";
 
             companyData.days[day].forEach(t => {
               dayTours += Number(t.tours || 0);
               dayTotal += Number(t.total || 0);
-
-              const row = t.row || t.rowNumber || "";
-
-              rowsHtml += `
-                <div class="day-row">
-                  <div class="day-head">
-                    <span>${t.tours} tura × ${money(t.price)}</span>
-                    <strong>${money(t.total)}</strong>
-                  </div>
-
-                  ${loggedIn ? `
-                    <div class="admin-actions">
-                      <button class="edit-btn" onclick="event.stopPropagation(); startEditTour('${row}', '${escapeText(t.company)}', '${t.date}', '${t.tours}', '${t.price}')">Edit</button>
-                      <button class="delete-btn" onclick="event.stopPropagation(); deleteTour('${row}')">Delete</button>
-                    </div>
-                  ` : ""}
-                </div>
-              `;
             });
 
             daysHtml += `
@@ -654,7 +657,6 @@
                   <span>${day}</span>
                   <strong>${dayTours} tura / ${money(dayTotal)}</strong>
                 </div>
-                ${rowsHtml}
               </div>
             `;
           });
