@@ -6,10 +6,7 @@
   <title>Ture App</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     body {
       margin: 0;
@@ -46,17 +43,8 @@
       box-shadow: 0 10px 25px rgba(0,0,0,0.25);
     }
 
-    h2 {
-      font-size: 19px;
-      margin-top: 0;
-      margin-bottom: 14px;
-    }
-
-    h3 {
-      font-size: 16px;
-      margin-top: 18px;
-      margin-bottom: 10px;
-    }
+    h2 { font-size: 19px; margin-top: 0; margin-bottom: 14px; }
+    h3 { font-size: 16px; margin-top: 18px; margin-bottom: 10px; }
 
     input, select {
       width: 100%;
@@ -89,25 +77,13 @@
       margin: 0;
     }
 
-    .secondary {
-      background: #334155;
-    }
+    .secondary { background: #334155; }
+    .green { background: #16a34a; }
+    .orange { background: #ea580c; }
+    .logout, .delete-btn { background: #dc2626; }
+    .edit-btn { background: #ca8a04; }
 
-    .green {
-      background: #16a34a;
-    }
-
-    .orange {
-      background: #ea580c;
-    }
-
-    .logout {
-      background: #dc2626;
-    }
-
-    .hidden {
-      display: none;
-    }
+    .hidden { display: none; }
 
     .week-bar {
       display: flex;
@@ -135,8 +111,7 @@
       gap: 10px;
     }
 
-    .tour-item,
-    .company-item {
+    .tour-item, .company-item {
       background: #020617;
       border: 1px solid #1e293b;
       border-radius: 14px;
@@ -157,9 +132,42 @@
       line-height: 1.5;
     }
 
-    .company-item {
-      font-size: 15px;
-      color: #e5e7eb;
+    .company-details {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #1e293b;
+    }
+
+    .day-row {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 8px;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    .day-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .day-head strong { color: white; }
+
+    .admin-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .admin-actions button {
+      padding: 10px;
+      font-size: 14px;
+      margin: 0;
     }
 
     .total-box {
@@ -179,6 +187,18 @@
       color: #94a3b8;
       text-align: center;
     }
+
+    .status-box {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 12px;
+      color: #cbd5e1;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .clickable { cursor: pointer; }
   </style>
 </head>
 
@@ -209,13 +229,12 @@
     <div id="adminButtons" class="card hidden">
       <div class="nav">
         <button class="green" onclick="showSection('companySection')">Dodaj kompaniju</button>
-        <button class="orange" onclick="showSection('tourSection')">Unos tura</button>
+        <button class="orange" onclick="showSection('tourSection')">Unos / izmena tura</button>
       </div>
     </div>
 
     <div id="companySection" class="card hidden">
       <h2>Dodaj kompaniju</h2>
-
       <input id="companyName" placeholder="Naziv kompanije" />
       <button onclick="addCompany()">Sačuvaj kompaniju</button>
 
@@ -224,34 +243,46 @@
     </div>
 
     <div id="tourSection" class="card hidden">
-      <h2>Unos tura</h2>
+      <h2 id="tourFormTitle">Unos / izmena tura</h2>
 
-      <select id="tourCompany"></select>
+      <div id="formStatus" class="status-box">
+        Izaberite kompaniju i datum. Ako postoji tura za taj dan, biće automatski učitana.
+      </div>
+
+      <input id="editRow" type="hidden" />
+
+      <select id="tourCompany" onchange="findTourForSelectedDate()"></select>
+      <input id="tourDate" type="date" onchange="findTourForSelectedDate()" />
       <input id="tourCount" type="number" placeholder="Broj tura" />
-      <input id="tourPrice" type="number" placeholder="Cena po turi" />
+      <input id="tourPrice" type="number" placeholder="Cena po turi u dinarima" />
 
-      <button onclick="addTour()">Sačuvaj turu</button>
+      <button id="saveTourBtn" onclick="saveTour()">Sačuvaj turu</button>
+      <button id="cancelEditBtn" class="secondary hidden" onclick="cancelEdit()">Otkaži izmenu</button>
     </div>
 
     <div class="card">
       <h2>Pregled tura</h2>
       <div id="tourList"></div>
-      <div id="totalBox" class="total-box">Ukupno: $0</div>
+      <div id="totalBox" class="total-box">Ukupno: 0 RSD</div>
     </div>
 
   </div>
 
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbx8NayFQk1zsnIiLCcFDSDmJGuXTZUcL8R1kq_usEwVEkrDwy50QTjo6JDXFibYvIFI/exec";
-    const CACHE_BUSTER = Date.now();
 
     let weekOffset = 0;
     let loggedIn = localStorage.getItem("loggedIn") === "yes";
+    let currentTours = [];
 
     document.addEventListener("DOMContentLoaded", () => {
       updateLoginView();
       loadData();
     });
+
+    function money(value) {
+      return `${Number(value || 0).toLocaleString("sr-RS")} RSD`;
+    }
 
     function openLogin() {
       document.getElementById("loginBox").classList.toggle("hidden");
@@ -266,13 +297,12 @@
         return;
       }
 
-      const res = await fetch(`${API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&v=${CACHE_BUSTER}`);
+      const res = await fetch(`${API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&v=${Date.now()}`);
       const data = await res.json();
 
       if (data.success) {
         localStorage.setItem("loggedIn", "yes");
         loggedIn = true;
-
         document.getElementById("loginBox").classList.add("hidden");
         updateLoginView();
         loadData();
@@ -288,7 +318,9 @@
       document.getElementById("companySection").classList.add("hidden");
       document.getElementById("tourSection").classList.add("hidden");
 
+      cancelEdit();
       updateLoginView();
+      loadData();
     }
 
     function updateLoginView() {
@@ -307,6 +339,21 @@
       document.getElementById("companySection").classList.add("hidden");
       document.getElementById("tourSection").classList.add("hidden");
       document.getElementById(id).classList.remove("hidden");
+
+      if (id === "tourSection") {
+        if (!document.getElementById("tourDate").value) {
+          document.getElementById("tourDate").value = todayDate();
+        }
+        findTourForSelectedDate();
+      }
+    }
+
+    function todayDate() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
     }
 
     async function addCompany() {
@@ -351,42 +398,140 @@
       }
     }
 
-    async function addTour() {
-      if (!loggedIn) return alert("Morate biti ulogovani");
+    function findTourForSelectedDate() {
+      if (!loggedIn) return;
 
       const company = document.getElementById("tourCompany").value;
+      const date = document.getElementById("tourDate").value;
+
+      if (!company || !date) return;
+
+      const found = currentTours.find(t =>
+        String(t.company).trim().toLowerCase() === String(company).trim().toLowerCase() &&
+        String(t.date).trim() === String(date).trim()
+      );
+
+      if (found) {
+        document.getElementById("editRow").value = found.row || found.rowNumber || "";
+        document.getElementById("tourCount").value = found.tours || "";
+        document.getElementById("tourPrice").value = found.price || "";
+
+        document.getElementById("tourFormTitle").innerText = "Izmena postojeće ture";
+        document.getElementById("saveTourBtn").innerText = "Sačuvaj izmenu";
+        document.getElementById("cancelEditBtn").classList.remove("hidden");
+        document.getElementById("formStatus").innerText = "Pronađena je postojeća tura za izabrani datum. Možete je izmeniti.";
+      } else {
+        document.getElementById("editRow").value = "";
+        document.getElementById("tourCount").value = "";
+        document.getElementById("tourPrice").value = "";
+
+        document.getElementById("tourFormTitle").innerText = "Unos nove ture";
+        document.getElementById("saveTourBtn").innerText = "Sačuvaj novu turu";
+        document.getElementById("cancelEditBtn").classList.add("hidden");
+        document.getElementById("formStatus").innerText = "Nema ture za izabrani datum. Možete uneti novu.";
+      }
+    }
+
+    async function saveTour() {
+      if (!loggedIn) return alert("Morate biti ulogovani");
+
+      const editRow = document.getElementById("editRow").value;
+      const company = document.getElementById("tourCompany").value;
+      const date = document.getElementById("tourDate").value;
       const tours = document.getElementById("tourCount").value;
       const price = document.getElementById("tourPrice").value;
 
-      if (!company || !tours || price === "") {
-        alert("Popunite sva polja");
+      if (!company || !date || !tours || price === "") {
+        alert("Popunite kompaniju, datum, broj tura i cenu");
         return;
       }
+
+      const action = editRow ? "updateTour" : "addTour";
 
       try {
         const res = await fetch(API_URL, {
           method: "POST",
           body: JSON.stringify({
-            action: "addTour",
-            company,
-            tours,
-            price
+            action: action,
+            row: editRow,
+            company: company,
+            date: date,
+            tours: tours,
+            price: price
           })
         });
 
         const data = await res.json();
 
         if (data.success) {
-          document.getElementById("tourCount").value = "";
-          document.getElementById("tourPrice").value = "";
-          alert("Tura je sačuvana");
-          loadData();
+          alert(editRow ? "Tura je izmenjena" : "Tura je sačuvana");
+          await loadData();
+          findTourForSelectedDate();
         } else {
           alert("Greška: " + data.message);
         }
 
       } catch (err) {
         alert("Greška pri čuvanju ture: " + err.message);
+      }
+    }
+
+    function startEditTour(row, company, date, tours, price) {
+      if (!loggedIn) return alert("Morate biti ulogovani");
+
+      showSection("tourSection");
+
+      document.getElementById("editRow").value = row;
+      document.getElementById("tourCompany").value = company;
+      document.getElementById("tourDate").value = date;
+      document.getElementById("tourCount").value = tours;
+      document.getElementById("tourPrice").value = price;
+
+      document.getElementById("tourFormTitle").innerText = "Izmena postojeće ture";
+      document.getElementById("saveTourBtn").innerText = "Sačuvaj izmenu";
+      document.getElementById("cancelEditBtn").classList.remove("hidden");
+      document.getElementById("formStatus").innerText = "Menjate izabranu turu.";
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function cancelEdit() {
+      document.getElementById("editRow").value = "";
+      document.getElementById("tourCount").value = "";
+      document.getElementById("tourPrice").value = "";
+
+      document.getElementById("tourFormTitle").innerText = "Unos / izmena tura";
+      document.getElementById("saveTourBtn").innerText = "Sačuvaj turu";
+      document.getElementById("cancelEditBtn").classList.add("hidden");
+      document.getElementById("formStatus").innerText = "Izaberite kompaniju i datum. Ako postoji tura za taj dan, biće automatski učitana.";
+    }
+
+    async function deleteTour(row) {
+      if (!loggedIn) return alert("Morate biti ulogovani");
+
+      if (!confirm("Da li ste sigurni da želite da obrišete ovu turu?")) return;
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "deleteTour",
+            row: row
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          alert("Tura je obrisana");
+          await loadData();
+          cancelEdit();
+        } else {
+          alert("Greška: " + data.message);
+        }
+
+      } catch (err) {
+        alert("Greška pri brisanju: " + err.message);
       }
     }
 
@@ -399,6 +544,8 @@
           alert("Greška: " + data.message);
           return;
         }
+
+        currentTours = data.tours || [];
 
         document.getElementById("weekLabel").innerText =
           `${data.weekStart} do ${data.weekEnd}`;
@@ -424,9 +571,7 @@
           }
 
           data.companies.forEach(company => {
-            companyList.innerHTML += `
-              <div class="company-item">${company}</div>
-            `;
+            companyList.innerHTML += `<div class="company-item">${company}</div>`;
           });
         }
 
@@ -437,7 +582,7 @@
 
         if (!data.tours || data.tours.length === 0) {
           list.innerHTML = `<p class="small-text">Nema unetih tura za ovu nedelju.</p>`;
-          document.getElementById("totalBox").innerText = `Ukupno: $0`;
+          document.getElementById("totalBox").innerText = `Ukupno: 0 RSD`;
           return;
         }
 
@@ -445,43 +590,114 @@
 
         data.tours.forEach(t => {
           const company = t.company;
+          const date = t.date || "Bez datuma";
 
           if (!grouped[company]) {
             grouped[company] = {
               company: company,
               tours: 0,
-              total: 0
+              total: 0,
+              days: {}
             };
           }
 
           grouped[company].tours += Number(t.tours || 0);
           grouped[company].total += Number(t.total || 0);
+
+          if (!grouped[company].days[date]) {
+            grouped[company].days[date] = [];
+          }
+
+          grouped[company].days[date].push(t);
         });
 
-        Object.values(grouped).forEach(t => {
-          total += Number(t.total || 0);
+        Object.values(grouped)
+
+  .sort((a, b) => Number(b.tours || 0) - Number(a.tours || 0))
+
+  .forEach((companyData, index) => {
+          total += Number(companyData.total || 0);
+
+          let daysHtml = "";
+
+          Object.keys(companyData.days).sort().forEach(day => {
+            let dayTours = 0;
+            let dayTotal = 0;
+            let rowsHtml = "";
+
+            companyData.days[day].forEach(t => {
+              dayTours += Number(t.tours || 0);
+              dayTotal += Number(t.total || 0);
+
+              const row = t.row || t.rowNumber || "";
+
+              rowsHtml += `
+                <div class="day-row">
+                  <div class="day-head">
+                    <span>${t.tours} tura × ${money(t.price)}</span>
+                    <strong>${money(t.total)}</strong>
+                  </div>
+
+                  ${loggedIn ? `
+                    <div class="admin-actions">
+                      <button class="edit-btn" onclick="event.stopPropagation(); startEditTour('${row}', '${escapeText(t.company)}', '${t.date}', '${t.tours}', '${t.price}')">Edit</button>
+                      <button class="delete-btn" onclick="event.stopPropagation(); deleteTour('${row}')">Delete</button>
+                    </div>
+                  ` : ""}
+                </div>
+              `;
+            });
+
+            daysHtml += `
+              <div class="day-row">
+                <div class="day-head">
+                  <span>${day}</span>
+                  <strong>${dayTours} tura / ${money(dayTotal)}</strong>
+                </div>
+                ${rowsHtml}
+              </div>
+            `;
+          });
 
           list.innerHTML += `
-            <div class="tour-item">
-              <div class="tour-company">${t.company}</div>
+            <div class="tour-item clickable" onclick="toggleDetails('details-${index}')">
+              <div class="tour-company">${companyData.company}</div>
+
               <div class="tour-details">
-                Ukupan broj tura: ${t.tours}<br>
-                Ukupno za kompaniju: $${t.total}
+                Ukupan broj tura: ${companyData.tours}<br>
+                Ukupno za kompaniju: ${money(companyData.total)}<br><br>
+                <small>Kliknite za detalje ▼</small>
+              </div>
+
+              <div id="details-${index}" class="company-details hidden">
+                ${daysHtml}
               </div>
             </div>
           `;
         });
 
-        document.getElementById("totalBox").innerText = `Ukupno: $${total}`;
+        document.getElementById("totalBox").innerText = `Ukupno: ${money(total)}`;
 
       } catch (err) {
         alert("Greška pri učitavanju: " + err.message);
       }
     }
 
+    function toggleDetails(id) {
+      document.getElementById(id).classList.toggle("hidden");
+    }
+
     function changeWeek(direction) {
       weekOffset += direction;
+      cancelEdit();
       loadData();
+    }
+
+    function escapeText(text) {
+      return String(text || "")
+        .replace(/\\/g, "\\\\")
+        .replace(/'/g, "\\'")
+        .replace(/"/g, "&quot;");
     }
   </script>
 </body>
