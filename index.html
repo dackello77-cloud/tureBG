@@ -270,7 +270,7 @@
     <div class="card">
       <h2>Pregled tura</h2>
       <div id="tourList"></div>
-      <div id="totalBox" class="total-box">Ukupno: 0 RSD</div>
+      <div id="totalBox" class="total-box">Ukupno tura: 0<br>Ukupno RSD: 0 RSD</div>
     </div>
 
   </div>
@@ -289,6 +289,33 @@
 
     function money(value) {
       return `${Number(value || 0).toLocaleString("sr-RS")} RSD`;
+    }
+
+    function getTourRow(tour) {
+      if (!tour) return "";
+
+      return tour.row ||
+        tour.Row ||
+        tour.rowNumber ||
+        tour.row_number ||
+        tour.rowIndex ||
+        tour.sheetRow ||
+        tour.red ||
+        tour.brojReda ||
+        tour._row ||
+        "";
+    }
+
+    function findExistingTour(company, date) {
+      return currentTours.find(t =>
+        String(t.company).trim().toLowerCase() === String(company).trim().toLowerCase() &&
+        String(t.date).trim() === String(date).trim()
+      );
+    }
+
+    function updateTotalBox(tours, total) {
+      document.getElementById("totalBox").innerHTML =
+        `Ukupno tura: ${Number(tours || 0).toLocaleString("sr-RS")}<br>Ukupno RSD: ${money(total)}`;
     }
 
     function openLogin() {
@@ -420,13 +447,10 @@
 
       if (!company || !date) return;
 
-      const found = currentTours.find(t =>
-        String(t.company).trim().toLowerCase() === String(company).trim().toLowerCase() &&
-        String(t.date).trim() === String(date).trim()
-      );
+      const found = findExistingTour(company, date);
 
       if (found) {
-        document.getElementById("editRow").value = found.row || found.rowNumber || "";
+        document.getElementById("editRow").value = getTourRow(found);
         document.getElementById("tourCount").value = found.tours || "";
         document.getElementById("tourPrice").value = found.price || "";
 
@@ -451,14 +475,20 @@
     async function saveTour() {
       if (!loggedIn) return alert("Morate biti ulogovani");
 
-      const editRow = document.getElementById("editRow").value;
       const company = document.getElementById("tourCompany").value;
       const date = document.getElementById("tourDate").value;
       const tours = document.getElementById("tourCount").value;
       const price = document.getElementById("tourPrice").value;
+      const existingTour = findExistingTour(company, date);
+      const editRow = document.getElementById("editRow").value || getTourRow(existingTour);
 
       if (!company || !date || !tours || price === "") {
         alert("Popunite kompaniju, datum, broj tura i cenu");
+        return;
+      }
+
+      if (existingTour && !editRow) {
+        alert("Postojeća tura je pronađena, ali ne može da se izmeni jer server nije vratio broj reda.");
         return;
       }
 
@@ -602,11 +632,12 @@
         const list = document.getElementById("tourList");
         list.innerHTML = "";
 
+        let totalTours = 0;
         let total = 0;
 
         if (!data.tours || data.tours.length === 0) {
           list.innerHTML = `<p class="small-text">Nema unetih tura za ovu nedelju.</p>`;
-          document.getElementById("totalBox").innerText = `Ukupno: 0 RSD`;
+          updateTotalBox(0, 0);
           return;
         }
 
@@ -638,6 +669,7 @@
         Object.values(grouped)
           .sort((a, b) => Number(b.tours || 0) - Number(a.tours || 0))
           .forEach((companyData, index) => {
+          totalTours += Number(companyData.tours || 0);
           total += Number(companyData.total || 0);
 
           let daysHtml = "";
@@ -678,7 +710,7 @@
           `;
         });
 
-        document.getElementById("totalBox").innerText = `Ukupno: ${money(total)}`;
+        updateTotalBox(totalTours, total);
 
       } catch (err) {
         alert("Greška pri učitavanju: " + err.message);
