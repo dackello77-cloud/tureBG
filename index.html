@@ -404,6 +404,152 @@
     }
 
     .clickable { cursor: pointer; }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .section-header h2 {
+      margin: 0;
+      min-width: 0;
+    }
+
+    @media (max-width: 390px) {
+      .app {
+        max-width: 100%;
+        padding: 12px max(12px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+      }
+
+      .top-bar {
+        margin-bottom: 12px;
+        padding-top: 10px;
+      }
+
+      .top-bar h1 {
+        font-size: 22px;
+      }
+
+      .brand-mark {
+        gap: 8px;
+      }
+
+      .brand-mark::before {
+        width: 10px;
+        height: 30px;
+      }
+
+      .card,
+      .daily-card,
+      .weekly-card {
+        border-radius: 14px;
+        margin-bottom: 12px;
+        padding: 14px;
+      }
+
+      h2 {
+        font-size: 17px;
+      }
+
+      input,
+      select,
+      button {
+        border-radius: 10px;
+        padding: 12px;
+      }
+
+      .login-small {
+        padding: 9px 12px;
+        font-size: 13px;
+      }
+
+      .week-bar,
+      .nav,
+      .daily-summary,
+      .admin-actions {
+        gap: 8px;
+      }
+
+      .week-bar button {
+        padding: 10px 8px;
+        font-size: 13px;
+      }
+
+      .nav {
+        grid-template-columns: 1fr;
+      }
+
+      .section-header {
+        align-items: flex-start;
+      }
+
+      .section-header h2 {
+        font-size: 17px;
+        line-height: 1.25;
+      }
+
+      .daily-header {
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .daily-title,
+      .weekly-title {
+        font-size: 17px;
+        line-height: 1.25;
+      }
+
+      .daily-date {
+        font-size: 12px;
+      }
+
+      .day-nav {
+        gap: 6px;
+      }
+
+      .day-nav button {
+        width: 36px;
+        height: 36px;
+        font-size: 20px;
+      }
+
+      .daily-metric {
+        border-radius: 12px;
+        padding: 10px;
+      }
+
+      .daily-metric strong {
+        font-size: 16px;
+      }
+
+      .daily-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        padding: 10px;
+      }
+
+      .daily-numbers {
+        text-align: left;
+        white-space: normal;
+      }
+
+      .day-head {
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .day-head strong {
+        overflow-wrap: anywhere;
+      }
+
+      .total-box {
+        font-size: 16px;
+        padding: 12px;
+      }
+    }
   </style>
 </head>
 
@@ -439,8 +585,8 @@
     </div>
 
     <div id="companySection" class="card hidden">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px;">
-        <h2 style="margin:0;">Dodaj kompaniju</h2>
+      <div class="section-header">
+        <h2>Dodaj kompaniju</h2>
         <button class="login-small secondary" onclick="closeSection('companySection')">Zatvori</button>
       </div>
       <input id="companyName" placeholder="Naziv kompanije" />
@@ -451,8 +597,8 @@
     </div>
 
     <div id="tourSection" class="card hidden">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px;">
-        <h2 id="tourFormTitle" style="margin:0;">Unos / izmena tura</h2>
+      <div class="section-header">
+        <h2 id="tourFormTitle">Unos / izmena tura</h2>
         <button class="login-small secondary" onclick="closeSection('tourSection')">Zatvori</button>
       </div>
 
