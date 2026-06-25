@@ -569,14 +569,6 @@
       <button onclick="login()">Login</button>
     </div>
 
-    <div class="card">
-      <div class="week-bar">
-        <button class="secondary" onclick="changeWeek(-1)">Prethodna</button>
-        <button class="secondary" onclick="changeWeek(1)">Sledeća</button>
-      </div>
-      <div id="weekLabel" class="week-label"></div>
-    </div>
-
     <div id="adminButtons" class="card hidden">
       <div class="nav">
         <button class="green" onclick="showSection('companySection')">Dodaj kompaniju</button>
@@ -648,6 +640,11 @@
 
     <div class="weekly-card">
       <div class="weekly-content">
+        <div class="week-bar">
+          <button class="secondary" onclick="changeWeek(-1)">Prethodna</button>
+          <button class="secondary" onclick="changeWeek(1)">Sledeća</button>
+        </div>
+        <div id="weekLabel" class="week-label"></div>
         <div class="weekly-header">
           <h2 class="weekly-title">Pregled tura</h2>
         </div>
