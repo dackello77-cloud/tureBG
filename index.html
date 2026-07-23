@@ -386,6 +386,24 @@
       border-radius: 10px;
     }
 
+    .global-price-editor {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .global-price-editor input {
+      margin: 0;
+    }
+
+    .global-price-editor button {
+      width: auto;
+      min-width: 92px;
+      margin: 0;
+    }
+
     .tour-company {
       font-size: 17px;
       font-weight: bold;
@@ -635,6 +653,10 @@
     </div>
 
     <div id="adminButtons" class="card hidden">
+      <div class="global-price-editor">
+        <input id="defaultTourPrice" type="number" placeholder="Cena ture za sve kompanije" />
+        <button class="secondary" type="button" onclick="saveDefaultPrice()">Sačuvaj</button>
+      </div>
       <div class="nav">
         <button class="green" onclick="showSection('companySection')">Dodaj kompaniju</button>
         <button class="orange" onclick="showSection('tourSection')">Unos / izmena tura</button>
@@ -730,6 +752,7 @@
     let weekOffset = 0;
     let loggedIn = localStorage.getItem("loggedIn") === "yes";
     let currentTours = [];
+    let defaultTourPrice = "";
     let savingTour = false;
     let selectedDay = "";
 
@@ -780,6 +803,10 @@
         String(t.company).trim().toLowerCase() === String(company).trim().toLowerCase() &&
         String(t.date).trim() === String(date).trim()
       );
+    }
+
+    function getDefaultTourPrice() {
+      return defaultTourPrice ?? "";
     }
 
     function updateTotalBox(tours, total) {
@@ -945,6 +972,38 @@
       }
     }
 
+    async function saveDefaultPrice() {
+      if (!loggedIn) return alert("Morate biti ulogovani");
+
+      const input = document.getElementById("defaultTourPrice");
+      const price = input ? input.value : "";
+
+      if (price !== "" && isNaN(Number(price))) {
+        alert("Unesite ispravnu cenu ture");
+        return;
+      }
+
+      try {
+        const data = await requestJson(API_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "updateDefaultPrice",
+            price: price
+          })
+        });
+
+        if (data.success) {
+          alert("Cena ture je sačuvana");
+          await loadData();
+          findTourForSelectedDate();
+        } else {
+          alert("Greška: " + data.message);
+        }
+      } catch (err) {
+        alert("Greška pri čuvanju cene: " + err.message);
+      }
+    }
+
     function logout() {
       localStorage.removeItem("loggedIn");
       loggedIn = false;
@@ -1081,7 +1140,7 @@
       } else {
         document.getElementById("editRow").value = "";
         document.getElementById("tourCount").value = "";
-        document.getElementById("tourPrice").value = "";
+        document.getElementById("tourPrice").value = getDefaultTourPrice();
         document.getElementById("tourCash").checked = false;
 
         document.getElementById("tourFormTitle").innerText = "Unos nove ture";
@@ -1224,6 +1283,8 @@
         }
 
         currentTours = data.tours || [];
+        defaultTourPrice = data.defaultPrice ?? "";
+        document.getElementById("defaultTourPrice").value = defaultTourPrice;
         renderDailyOverview(data.dailyTours || [], data.dailyDate || selectedDay);
 
         document.getElementById("weekLabel").innerText =
