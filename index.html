@@ -364,6 +364,28 @@
       margin-bottom: 10px;
     }
 
+    .company-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .company-name {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-weight: bold;
+    }
+
+    .company-delete {
+      width: auto;
+      min-width: 86px;
+      margin: 0;
+      padding: 9px 11px;
+      font-size: 13px;
+      border-radius: 10px;
+    }
+
     .tour-company {
       font-size: 17px;
       font-weight: bold;
@@ -744,6 +766,15 @@
         String(tour.cash) === "1";
     }
 
+    function sortCompanyOverview(a, b) {
+      if (a.cash !== b.cash) return a.cash ? 1 : -1;
+
+      const tourDiff = Number(b.tours || 0) - Number(a.tours || 0);
+      if (tourDiff !== 0) return tourDiff;
+
+      return String(a.company || "").localeCompare(String(b.company || ""), "sr");
+    }
+
     function findExistingTour(company, date) {
       return currentTours.find(t =>
         String(t.company).trim().toLowerCase() === String(company).trim().toLowerCase() &&
@@ -792,7 +823,7 @@
       });
 
       Object.values(grouped)
-        .sort((a, b) => Number(b.tours || 0) - Number(a.tours || 0))
+        .sort(sortCompanyOverview)
         .forEach(item => {
           totalTours += item.tours;
           total += item.total;
@@ -884,6 +915,33 @@
         }
       } catch (err) {
         alert("Greška pri loginu: " + err.message);
+      }
+    }
+
+    async function deleteCompany(company) {
+      if (!loggedIn) return alert("Morate biti ulogovani");
+      if (!company) return;
+
+      if (!confirm(`Da li želite da obrišete kompaniju "${company}" iz liste kompanija?`)) return;
+
+      try {
+        const data = await requestJson(API_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "deleteCompany",
+            company: company
+          })
+        });
+
+        if (data.success) {
+          alert("Kompanija je obrisana");
+          await loadData();
+          cancelEdit();
+        } else {
+          alert("Greška: " + data.message);
+        }
+      } catch (err) {
+        alert("Greška pri brisanju kompanije: " + err.message);
       }
     }
 
@@ -1192,7 +1250,12 @@
           }
 
           data.companies.forEach(company => {
-            companyList.innerHTML += `<div class="company-item">${escapeHtml(company)}</div>`;
+            companyList.innerHTML += `
+              <div class="company-item">
+                <div class="company-name">${escapeHtml(company)}</div>
+                <button class="delete-btn company-delete" type="button" onclick="deleteCompany(${htmlJsArg(company)})">Obriši</button>
+              </div>
+            `;
           });
         }
 
@@ -1236,7 +1299,7 @@
         });
 
         Object.values(grouped)
-          .sort((a, b) => Number(b.tours || 0) - Number(a.tours || 0))
+          .sort(sortCompanyOverview)
           .forEach((companyData, index) => {
           totalTours += Number(companyData.tours || 0);
           total += Number(companyData.total || 0);
@@ -1256,8 +1319,8 @@
                 const row = getTourRow(t);
                 actionHtml += `
                   <div class="admin-actions">
-                    <button class="edit-btn" onclick="event.stopPropagation(); startEditTour(${jsArg(row)}, ${jsArg(t.company)}, ${jsArg(t.date)}, ${jsArg(t.tours)}, ${jsArg(t.price)}, ${jsArg(isCashTour(t))})">Izmeni</button>
-                    <button class="delete-btn" onclick="event.stopPropagation(); deleteTour(${jsArg(row)})">Obriši</button>
+                    <button class="edit-btn" type="button" onclick="event.stopPropagation(); startEditTour(${htmlJsArg(row)}, ${htmlJsArg(t.company)}, ${htmlJsArg(t.date)}, ${htmlJsArg(t.tours)}, ${htmlJsArg(t.price)}, ${htmlJsArg(isCashTour(t))})">Izmeni</button>
+                    <button class="delete-btn" type="button" onclick="event.stopPropagation(); deleteTour(${htmlJsArg(row)})">Obriši</button>
                   </div>
                 `;
               }
@@ -1334,6 +1397,10 @@
 
     function jsArg(value) {
       return JSON.stringify(String(value ?? ""));
+    }
+
+    function htmlJsArg(value) {
+      return escapeHtml(jsArg(value));
     }
   </script>
 </body>
