@@ -746,8 +746,13 @@
 
   </div>
 
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbx8NayFQk1zsnIiLCcFDSDmJGuXTZUcL8R1kq_usEwVEkrDwy50QTjo6JDXFibYvIFI/exec";
+    const SUPABASE_URL = "https://cxbmyyvbeqegdzwuzkyo.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_SvlC4bCTuI4MFiQtzRt5_A_TeLpjbja";
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let weekOffset = 0;
     let loggedIn = localStorage.getItem("loggedIn") === "yes";
@@ -767,18 +772,7 @@
     }
 
     function getTourRow(tour) {
-      if (!tour) return "";
-
-      return tour.row ||
-        tour.Row ||
-        tour.rowNumber ||
-        tour.row_number ||
-        tour.rowIndex ||
-        tour.sheetRow ||
-        tour.red ||
-        tour.brojReda ||
-        tour._row ||
-        "";
+      return tour ? tour.id : "";
     }
 
     function isCashTour(tour) {
@@ -874,31 +868,19 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    async function requestJson(url, options = {}, attempts = 3) {
+    function errMsg(error) {
+      return (error && error.message) ? error.message : String(error);
+    }
+
+    async function withRetry(queryFn, attempts = 3) {
       let lastError;
 
       for (let attempt = 1; attempt <= attempts; attempt++) {
-        try {
-          const res = await fetch(url, {
-            ...options,
-            cache: "no-store",
-            headers: {
-              "Content-Type": "text/plain;charset=utf-8",
-              ...(options.headers || {})
-            }
-          });
+        const { data, error } = await queryFn();
+        if (!error) return data;
 
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
-          }
-
-          return await res.json();
-        } catch (err) {
-          lastError = err;
-          if (attempt < attempts) {
-            await sleep(600 * attempt);
-          }
-        }
+        lastError = error;
+        if (attempt < attempts) await sleep(600 * attempt);
       }
 
       throw lastError;
@@ -929,19 +911,24 @@
       }
 
       try {
-        const data = await requestJson(`${API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&v=${Date.now()}`);
+        const { data, error } = await supabase.rpc("check_login", {
+          p_username: username,
+          p_password: password
+        });
 
-        if (data.success) {
+        if (error) throw error;
+
+        if (data) {
           localStorage.setItem("loggedIn", "yes");
           loggedIn = true;
           document.getElementById("loginBox").classList.add("hidden");
           updateLoginView();
           loadData();
         } else {
-          alert(data.message || "Login nije uspeo");
+          alert("Pogrešan username ili password");
         }
       } catch (err) {
-        alert("Greška pri loginu: " + err.message);
+        alert("Greška pri loginu: " + errMsg(err));
       }
     }
 
@@ -952,23 +939,14 @@
       if (!confirm(`Da li želite da obrišete kompaniju "${company}" iz liste kompanija?`)) return;
 
       try {
-        const data = await requestJson(API_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            action: "deleteCompany",
-            company: company
-          })
-        });
+        const { error } = await supabase.from("companies").delete().eq("name", company);
+        if (error) throw error;
 
-        if (data.success) {
-          alert("Kompanija je obrisana");
-          await loadData();
-          cancelEdit();
-        } else {
-          alert("Greška: " + data.message);
-        }
+        alert("Kompanija je obrisana");
+        await loadData();
+        cancelEdit();
       } catch (err) {
-        alert("Greška pri brisanju kompanije: " + err.message);
+        alert("Greška pri brisanju kompanije: " + errMsg(err));
       }
     }
 
@@ -984,30 +962,24 @@
       }
 
       try {
-        const data = await requestJson(API_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            action: "updateDefaultPrice",
-            price: price
-          })
-        });
+        const { error } = await supabase
+          .from("settings")
+          .update({ default_price: price === "" ? null : Number(price) })
+          .eq("id", 1);
 
-        if (data.success) {
-          alert("Cena ture je sačuvana");
-          await loadData();
-          findTourForSelectedDate();
-        } else {
-          alert("Greška: " + data.message);
-        }
+        if (error) throw error;
+
+        alert("Cena ture je sačuvana");
+        await loadData();
+        findTourForSelectedDate();
       } catch (err) {
-        alert("Greška pri čuvanju cene: " + err.message);
+        alert("Greška pri čuvanju cene: " + errMsg(err));
       }
     }
 
     function logout() {
       localStorage.removeItem("loggedIn");
       loggedIn = false;
-
       document.getElementById("companySection").classList.add("hidden");
       document.getElementById("tourSection").classList.add("hidden");
 
@@ -1065,6 +1037,15 @@
       return `${y}-${m}-${day}`;
     }
 
+    function getWeekRange(dateText) {
+      const parts = String(dateText || todayDate()).split("-").map(Number);
+      const day = new Date(parts[0], parts[1] - 1, parts[2]).getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const monday = addDaysToDateString(dateText, diffToMonday);
+      const sunday = addDaysToDateString(monday, 6);
+      return { start: monday, end: sunday };
+    }
+
     function formatDisplayDate(dateText) {
       const parts = String(dateText || todayDate()).split("-").map(Number);
       const date = new Date(parts[0], parts[1] - 1, parts[2]);
@@ -1095,24 +1076,22 @@
       }
 
       try {
-        const data = await requestJson(API_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            action: "addCompany",
-            company: company
-          })
-        });
+        const { error } = await supabase.from("companies").insert({ name: company });
 
-        if (data.success) {
-          document.getElementById("companyName").value = "";
-          alert("Kompanija je sačuvana");
-          loadData();
-        } else {
-          alert("Greška: " + data.message);
+        if (error) {
+          if (error.code === "23505") {
+            alert("Ova kompanija već postoji");
+          } else {
+            throw error;
+          }
+          return;
         }
 
+        document.getElementById("companyName").value = "";
+        alert("Kompanija je sačuvana");
+        loadData();
       } catch (err) {
-        alert("Greška pri čuvanju: " + err.message);
+        alert("Greška pri čuvanju: " + errMsg(err));
       }
     }
 
@@ -1168,39 +1147,23 @@
         return;
       }
 
-      if (existingTour && !editRow) {
-        alert("Postojeća tura je pronađena, ali ne može da se izmeni jer server nije vratio broj reda.");
-        return;
-      }
-
-      const action = editRow ? "updateTour" : "addTour";
+      const total = Number(tours) * Number(price);
+      const record = { date, company, tours: Number(tours), price: Number(price), total, cash };
 
       try {
         setSaveTourBusy(true);
 
-        const data = await requestJson(API_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            action: action,
-            row: editRow,
-            company: company,
-            date: date,
-            tours: tours,
-            price: price,
-            cash: cash
-          })
-        });
+        const { error } = editRow
+          ? await supabase.from("tours").update(record).eq("id", editRow)
+          : await supabase.from("tours").insert(record);
 
-        if (data.success) {
-          alert(editRow ? "Tura je izmenjena" : "Tura je sačuvana");
-          await loadData();
-          findTourForSelectedDate();
-        } else {
-          alert("Greška: " + data.message);
-        }
+        if (error) throw error;
 
+        alert(editRow ? "Tura je izmenjena" : "Tura je sačuvana");
+        await loadData();
+        findTourForSelectedDate();
       } catch (err) {
-        alert("Greška pri čuvanju ture: " + err.message);
+        alert("Greška pri čuvanju ture: " + errMsg(err));
       } finally {
         setSaveTourBusy(false);
       }
@@ -1252,65 +1215,57 @@
       if (!confirm("Da li ste sigurni da želite da obrišete ovu turu?")) return;
 
       try {
-        const data = await requestJson(API_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            action: "deleteTour",
-            row: row
-          })
-        });
+        const { error } = await supabase.from("tours").delete().eq("id", row);
+        if (error) throw error;
 
-        if (data.success) {
-          alert("Tura je obrisana");
-          await loadData();
-          cancelEdit();
-        } else {
-          alert("Greška: " + data.message);
-        }
-
+        alert("Tura je obrisana");
+        await loadData();
+        cancelEdit();
       } catch (err) {
-        alert("Greška pri brisanju: " + err.message);
+        alert("Greška pri brisanju: " + errMsg(err));
       }
     }
 
     async function loadData() {
       try {
-        const data = await requestJson(`${API_URL}?action=getData&weekOffset=${weekOffset}&dailyDate=${encodeURIComponent(selectedDay)}&v=${Date.now()}`);
+        const targetDate = addDaysToDateString(todayDate(), weekOffset * 7);
+        const week = getWeekRange(targetDate);
 
-        if (!data.success) {
-          alert("Greška: " + data.message);
-          return;
-        }
+        const [companiesData, settingsData, weeklyTours, dailyTours] = await Promise.all([
+          withRetry(() => supabase.from("companies").select("name").order("name")),
+          withRetry(() => supabase.from("settings").select("default_price").eq("id", 1).single()),
+          withRetry(() => supabase.from("tours").select("*").gte("date", week.start).lte("date", week.end).order("date")),
+          withRetry(() => supabase.from("tours").select("*").eq("date", selectedDay))
+        ]);
 
-        currentTours = data.tours || [];
-        defaultTourPrice = data.defaultPrice ?? "";
+        currentTours = weeklyTours || [];
+        defaultTourPrice = settingsData ? (settingsData.default_price ?? "") : "";
         document.getElementById("defaultTourPrice").value = defaultTourPrice;
-        renderDailyOverview(data.dailyTours || [], data.dailyDate || selectedDay);
+        renderDailyOverview(dailyTours || [], selectedDay);
 
-        document.getElementById("weekLabel").innerText =
-          `${data.weekStart} do ${data.weekEnd}`;
+        document.getElementById("weekLabel").innerText = `${week.start} do ${week.end}`;
+
+        const companies = (companiesData || []).map(c => c.name).filter(Boolean);
 
         const select = document.getElementById("tourCompany");
         select.innerHTML = "";
 
-        data.companies.forEach(company => {
-          if (company) {
-            const option = document.createElement("option");
-            option.value = company;
-            option.textContent = company;
-            select.appendChild(option);
-          }
+        companies.forEach(company => {
+          const option = document.createElement("option");
+          option.value = company;
+          option.textContent = company;
+          select.appendChild(option);
         });
 
         const companyList = document.getElementById("companyList");
         if (companyList) {
           companyList.innerHTML = "";
 
-          if (data.companies.length === 0) {
+          if (companies.length === 0) {
             companyList.innerHTML = `<p class="small-text">Nema unetih kompanija.</p>`;
           }
 
-          data.companies.forEach(company => {
+          companies.forEach(company => {
             companyList.innerHTML += `
               <div class="company-item">
                 <div class="company-name">${escapeHtml(company)}</div>
@@ -1326,7 +1281,7 @@
         let totalTours = 0;
         let total = 0;
 
-        if (!data.tours || data.tours.length === 0) {
+        if (!currentTours || currentTours.length === 0) {
           list.innerHTML = `<p class="small-text">Nema unetih tura za ovu nedelju.</p>`;
           updateTotalBox(0, 0);
           return;
@@ -1334,7 +1289,7 @@
 
         const grouped = {};
 
-        data.tours.forEach(t => {
+        currentTours.forEach(t => {
           const company = t.company;
           const date = t.date || "Bez datuma";
 
@@ -1421,7 +1376,7 @@
         updateTotalBox(totalTours, total);
 
       } catch (err) {
-        alert("Greška pri učitavanju: " + err.message);
+        alert("Greška pri učitavanju: " + errMsg(err));
       }
     }
 
@@ -1438,13 +1393,6 @@
     function changeDay(direction) {
       selectedDay = addDaysToDateString(selectedDay, direction);
       loadData();
-    }
-
-    function escapeText(text) {
-      return String(text || "")
-        .replace(/\\/g, "\\\\")
-        .replace(/'/g, "\\'")
-        .replace(/"/g, "&quot;");
     }
 
     function escapeHtml(text) {
