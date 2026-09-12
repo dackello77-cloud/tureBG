@@ -752,7 +752,7 @@
     const SUPABASE_URL = "https://cxbmyyvbeqegdzwuzkyo.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_SvlC4bCTuI4MFiQtzRt5_A_TeLpjbja";
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let weekOffset = 0;
     let loggedIn = localStorage.getItem("loggedIn") === "yes";
@@ -911,7 +911,7 @@
       }
 
       try {
-        const { data, error } = await supabase.rpc("check_login", {
+        const { data, error } = await sb.rpc("check_login", {
           p_username: username,
           p_password: password
         });
@@ -939,7 +939,7 @@
       if (!confirm(`Da li želite da obrišete kompaniju "${company}" iz liste kompanija?`)) return;
 
       try {
-        const { error } = await supabase.from("companies").delete().eq("name", company);
+        const { error } = await sb.from("companies").delete().eq("name", company);
         if (error) throw error;
 
         alert("Kompanija je obrisana");
@@ -1076,7 +1076,7 @@
       }
 
       try {
-        const { error } = await supabase.from("companies").insert({ name: company });
+        const { error } = await sb.from("companies").insert({ name: company });
 
         if (error) {
           if (error.code === "23505") {
@@ -1154,8 +1154,8 @@
         setSaveTourBusy(true);
 
         const { error } = editRow
-          ? await supabase.from("tours").update(record).eq("id", editRow)
-          : await supabase.from("tours").insert(record);
+          ? await sb.from("tours").update(record).eq("id", editRow)
+          : await sb.from("tours").insert(record);
 
         if (error) throw error;
 
@@ -1215,7 +1215,7 @@
       if (!confirm("Da li ste sigurni da želite da obrišete ovu turu?")) return;
 
       try {
-        const { error } = await supabase.from("tours").delete().eq("id", row);
+        const { error } = await sb.from("tours").delete().eq("id", row);
         if (error) throw error;
 
         alert("Tura je obrisana");
@@ -1232,10 +1232,10 @@
         const week = getWeekRange(targetDate);
 
         const [companiesData, settingsData, weeklyTours, dailyTours] = await Promise.all([
-          withRetry(() => supabase.from("companies").select("name").order("name")),
-          withRetry(() => supabase.from("settings").select("default_price").eq("id", 1).single()),
-          withRetry(() => supabase.from("tours").select("*").gte("date", week.start).lte("date", week.end).order("date")),
-          withRetry(() => supabase.from("tours").select("*").eq("date", selectedDay))
+          withRetry(() => sb.from("companies").select("name").order("name")),
+          withRetry(() => sb.from("settings").select("default_price").eq("id", 1).single()),
+          withRetry(() => sb.from("tours").select("*").gte("date", week.start).lte("date", week.end).order("date")),
+          withRetry(() => sb.from("tours").select("*").eq("date", selectedDay))
         ]);
 
         currentTours = weeklyTours || [];
