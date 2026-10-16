@@ -488,6 +488,50 @@
 
     .clickable { cursor: pointer; }
 
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 4px;
+      margin-bottom: 14px;
+      background: rgba(2, 6, 23, 0.55);
+      border: 1px solid rgba(186, 230, 253, 0.18);
+      border-radius: 14px;
+    }
+
+    .tabs button {
+      margin: 0;
+      padding: 10px;
+      font-size: 15px;
+      color: #94a3b8;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .tabs button.active {
+      color: #fff;
+      background: linear-gradient(135deg, #0284c7, #16a34a);
+    }
+
+    .period-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .period-row label {
+      display: block;
+      color: #bae6fd;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .export-box {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(186, 230, 253, 0.22);
+    }
+
     .section-header {
       display: flex;
       justify-content: space-between;
@@ -653,13 +697,76 @@
     </div>
 
     <div id="adminButtons" class="card hidden">
-      <div class="global-price-editor">
-        <input id="defaultTourPrice" type="number" placeholder="Cena ture za sve kompanije" />
-        <button class="secondary" type="button" onclick="saveDefaultPrice()">Sačuvaj</button>
+      <div class="tabs">
+        <button id="tabPublic" class="active" type="button" onclick="switchTab('public')">Public</button>
+        <button id="tabPersonal" type="button" onclick="switchTab('personal')">Personal</button>
       </div>
-      <div class="nav">
-        <button class="green" onclick="showSection('companySection')">Dodaj kompaniju</button>
-        <button class="orange" onclick="showSection('tourSection')">Unos / izmena tura</button>
+      <div id="publicPanel">
+        <div class="global-price-editor">
+          <input id="defaultTourPrice" type="number" placeholder="Cena ture za sve kompanije" />
+          <button class="secondary" type="button" onclick="saveDefaultPrice()">Sačuvaj</button>
+        </div>
+        <div class="nav">
+          <button class="green" onclick="showSection('companySection')">Dodaj kompaniju</button>
+          <button class="orange" onclick="showSection('tourSection')">Unos / izmena tura</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="personalSection" class="hidden">
+      <div class="card">
+        <h2 id="pFormTitle">Personal unos</h2>
+
+        <div id="pFormStatus" class="status-box">
+          Izaberite kompaniju i datum. Ako postoji tura za taj dan, biće automatski učitana.
+        </div>
+
+        <input id="pEditId" type="hidden" />
+
+        <select id="pCompany" onchange="findPersonalForDate()"></select>
+        <input id="pDate" type="date" onchange="findPersonalForDate()" />
+        <input id="pCount" type="number" placeholder="Broj tura" />
+        <input id="pPrice" type="number" placeholder="Cena po turi u dinarima" />
+        <label class="checkbox-row">
+          <input id="pCash" type="checkbox" />
+          Keš
+        </label>
+
+        <button id="pSaveBtn" onclick="savePersonal()">Sačuvaj turu</button>
+        <button id="pDeleteBtn" class="delete-btn hidden" onclick="deletePersonal(document.getElementById('pEditId').value)">Obriši izabranu turu</button>
+        <button id="pCancelBtn" class="secondary hidden" onclick="cancelPersonalEdit()">Otkaži izmenu</button>
+      </div>
+
+      <div class="weekly-card">
+        <div class="weekly-content">
+          <div class="week-bar">
+            <button class="secondary" onclick="changePersonalWeek(-1)">Prethodna</button>
+            <button class="secondary" onclick="changePersonalWeek(1)">Sledeća</button>
+          </div>
+          <div class="period-row">
+            <div>
+              <label for="pFrom">Od</label>
+              <input id="pFrom" type="date" onchange="loadPersonal()" />
+            </div>
+            <div>
+              <label for="pTo">Do</label>
+              <input id="pTo" type="date" onchange="loadPersonal()" />
+            </div>
+          </div>
+          <div class="weekly-header">
+            <h2 class="weekly-title">Personal pregled</h2>
+          </div>
+          <div id="pList"></div>
+          <div id="pTotalBox" class="total-box">Ukupno tura: 0<br>Ukupno RSD: 0 RSD</div>
+
+          <div class="export-box">
+            <select id="pdfSource">
+              <option value="personal">Personal tabela</option>
+              <option value="public">Public tabela</option>
+            </select>
+            <button class="orange" type="button" id="pdfBtn" onclick="exportPdf()">Izvezi PDF za izabrani period</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -701,7 +808,7 @@
       <button id="cancelEditBtn" class="secondary hidden" onclick="cancelEdit()">Otkaži izmenu</button>
     </div>
 
-    <div class="daily-card">
+    <div id="publicDaily" class="daily-card">
       <div class="daily-content">
         <div class="daily-header">
           <div>
@@ -729,7 +836,7 @@
       </div>
     </div>
 
-    <div class="weekly-card">
+    <div id="publicWeekly" class="weekly-card">
       <div class="weekly-content">
         <div class="week-bar">
           <button class="secondary" onclick="changeWeek(-1)">Prethodna</button>
@@ -755,7 +862,7 @@
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let weekOffset = 0;
-    let loggedIn = localStorage.getItem("loggedIn") === "yes";
+    let loggedIn = localStorage.getItem("loggedIn") === "yes" && !!localStorage.getItem("adminToken");
     let currentTours = [];
     let defaultTourPrice = "";
     let savingTour = false;
@@ -911,7 +1018,7 @@
       }
 
       try {
-        const { data, error } = await sb.rpc("check_login", {
+        const { data, error } = await sb.rpc("admin_login", {
           p_username: username,
           p_password: password
         });
@@ -919,6 +1026,7 @@
         if (error) throw error;
 
         if (data) {
+          localStorage.setItem("adminToken", data);
           localStorage.setItem("loggedIn", "yes");
           loggedIn = true;
           document.getElementById("loginBox").classList.add("hidden");
@@ -962,7 +1070,7 @@
       }
 
       try {
-        const { error } = await supabase
+        const { error } = await sb
           .from("settings")
           .update({ default_price: price === "" ? null : Number(price) })
           .eq("id", 1);
@@ -978,6 +1086,11 @@
     }
 
     function logout() {
+      const token = localStorage.getItem("adminToken");
+      if (token) sb.rpc("admin_logout", { p_token: token }).then(() => {});
+
+      switchTab("public");
+      localStorage.removeItem("adminToken");
       localStorage.removeItem("loggedIn");
       loggedIn = false;
       document.getElementById("companySection").classList.add("hidden");
@@ -1247,14 +1360,19 @@
 
         const companies = (companiesData || []).map(c => c.name).filter(Boolean);
 
-        const select = document.getElementById("tourCompany");
-        select.innerHTML = "";
+        ["tourCompany", "pCompany"].forEach(selectId => {
+          const select = document.getElementById(selectId);
+          const previous = select.value;
+          select.innerHTML = "";
 
-        companies.forEach(company => {
-          const option = document.createElement("option");
-          option.value = company;
-          option.textContent = company;
-          select.appendChild(option);
+          companies.forEach(company => {
+            const option = document.createElement("option");
+            option.value = company;
+            option.textContent = company;
+            select.appendChild(option);
+          });
+
+          if (previous && companies.includes(previous)) select.value = previous;
         });
 
         const companyList = document.getElementById("companyList");
@@ -1393,6 +1511,409 @@
     function changeDay(direction) {
       selectedDay = addDaysToDateString(selectedDay, direction);
       loadData();
+    }
+
+    // ---------- Admin tabovi: Public / Personal ----------
+
+    function switchTab(tab) {
+      const personal = tab === "personal";
+
+      document.getElementById("tabPublic").classList.toggle("active", !personal);
+      document.getElementById("tabPersonal").classList.toggle("active", personal);
+      document.getElementById("publicPanel").classList.toggle("hidden", personal);
+      document.getElementById("publicDaily").classList.toggle("hidden", personal);
+      document.getElementById("publicWeekly").classList.toggle("hidden", personal);
+      document.getElementById("personalSection").classList.toggle("hidden", !personal);
+
+      if (personal) {
+        document.getElementById("companySection").classList.add("hidden");
+        document.getElementById("tourSection").classList.add("hidden");
+        cancelEdit();
+
+        if (!document.getElementById("pFrom").value) {
+          const week = getWeekRange(todayDate());
+          document.getElementById("pFrom").value = week.start;
+          document.getElementById("pTo").value = week.end;
+        }
+        if (!document.getElementById("pDate").value) {
+          document.getElementById("pDate").value = todayDate();
+        }
+
+        loadPersonal();
+        findPersonalForDate();
+      }
+    }
+
+    // ---------- Personal tabela (samo za admina, preko token funkcija) ----------
+
+    let personalTours = [];
+    let savingPersonal = false;
+
+    async function personalRpc(fn, args) {
+      const { data, error } = await sb.rpc(fn, {
+        p_token: localStorage.getItem("adminToken"),
+        ...args
+      });
+
+      if (error) {
+        if (String(error.message).includes("SESSION_EXPIRED")) {
+          alert("Sesija je istekla. Ulogujte se ponovo.");
+          logout();
+          error.handled = true;
+        }
+        throw error;
+      }
+
+      return data;
+    }
+
+    function personalError(prefix, err) {
+      if (!err || !err.handled) alert(prefix + errMsg(err));
+    }
+
+    function changePersonalWeek(direction) {
+      const start = addDaysToDateString(document.getElementById("pFrom").value || todayDate(), direction * 7);
+      const week = getWeekRange(start);
+      document.getElementById("pFrom").value = week.start;
+      document.getElementById("pTo").value = week.end;
+      loadPersonal();
+    }
+
+    function getPersonalPeriod() {
+      const from = document.getElementById("pFrom").value;
+      const to = document.getElementById("pTo").value;
+
+      if (!from || !to) {
+        alert("Izaberite period (od - do)");
+        return null;
+      }
+      if (from > to) {
+        alert("Datum 'Od' mora biti pre datuma 'Do'");
+        return null;
+      }
+      return { from, to };
+    }
+
+    async function loadPersonal() {
+      if (!loggedIn) return;
+
+      const period = getPersonalPeriod();
+      if (!period) return;
+
+      try {
+        personalTours = await personalRpc("personal_tours_list", { p_from: period.from, p_to: period.to }) || [];
+        renderPersonalList();
+      } catch (err) {
+        personalError("Greška pri učitavanju personal tura: ", err);
+      }
+    }
+
+    function renderPersonalList() {
+      const list = document.getElementById("pList");
+      const totalBox = document.getElementById("pTotalBox");
+      const grouped = {};
+      let totalTours = 0;
+      let total = 0;
+
+      list.innerHTML = "";
+
+      if (personalTours.length === 0) {
+        list.innerHTML = `<p class="small-text">Nema personal tura za ovaj period.</p>`;
+        totalBox.innerHTML = `Ukupno tura: 0<br>Ukupno RSD: ${money(0)}`;
+        return;
+      }
+
+      personalTours.forEach(t => {
+        if (!grouped[t.company]) {
+          grouped[t.company] = { company: t.company, tours: 0, total: 0, cash: false, rows: [] };
+        }
+        grouped[t.company].tours += Number(t.tours || 0);
+        grouped[t.company].total += Number(t.total || 0);
+        grouped[t.company].cash = grouped[t.company].cash || isCashTour(t);
+        grouped[t.company].rows.push(t);
+      });
+
+      Object.values(grouped)
+        .sort(sortCompanyOverview)
+        .forEach((item, index) => {
+          totalTours += item.tours;
+          total += item.total;
+
+          const rowsHtml = item.rows.map(t => `
+            <div class="day-row">
+              <div class="day-head">
+                <span>${escapeHtml(t.date)}${isCashTour(t) ? " · Keš" : ""}</span>
+                <strong>${Number(t.tours || 0).toLocaleString("sr-RS")} tura / ${money(t.total)}</strong>
+              </div>
+              <div class="admin-actions">
+                <button class="edit-btn" type="button" onclick="event.stopPropagation(); startEditPersonal(${htmlJsArg(t.id)})">Izmeni</button>
+                <button class="delete-btn" type="button" onclick="event.stopPropagation(); deletePersonal(${htmlJsArg(t.id)})">Obriši</button>
+              </div>
+            </div>
+          `).join("");
+
+          list.innerHTML += `
+            <div class="tour-item clickable ${item.cash ? "cash-marked" : ""}" onclick="toggleDetails('p-details-${index}')">
+              <div class="tour-company">
+                ${escapeHtml(item.company)}
+                ${item.cash ? `<span class="cash-badge">Keš</span>` : ""}
+              </div>
+              <div class="tour-details">
+                Ukupan broj tura: ${Number(item.tours).toLocaleString("sr-RS")}<br>
+                Ukupno za kompaniju: ${money(item.total)}<br><br>
+                <small>Kliknite za detalje ▼</small>
+              </div>
+              <div id="p-details-${index}" class="company-details hidden">
+                ${rowsHtml}
+              </div>
+            </div>
+          `;
+        });
+
+      totalBox.innerHTML = `Ukupno tura: ${Number(totalTours).toLocaleString("sr-RS")}<br>Ukupno RSD: ${money(total)}`;
+    }
+
+    function fillPersonalForm(tour) {
+      const editing = !!tour;
+
+      document.getElementById("pEditId").value = editing ? tour.id : "";
+      document.getElementById("pCount").value = editing ? tour.tours : "";
+      document.getElementById("pPrice").value = editing ? tour.price : getDefaultTourPrice();
+      document.getElementById("pCash").checked = editing && isCashTour(tour);
+
+      document.getElementById("pFormTitle").innerText = editing ? "Izmena personal ture" : "Personal unos";
+      document.getElementById("pSaveBtn").innerText = editing ? "Sačuvaj izmenu" : "Sačuvaj novu turu";
+      document.getElementById("pCancelBtn").classList.toggle("hidden", !editing);
+      document.getElementById("pDeleteBtn").classList.toggle("hidden", !editing);
+      document.getElementById("pFormStatus").innerText = editing
+        ? "Pronađena je postojeća personal tura za izabrani datum. Možete je izmeniti."
+        : "Nema personal ture za izabrani datum. Možete uneti novu.";
+    }
+
+    async function findPersonalForDate() {
+      if (!loggedIn) return;
+
+      const company = document.getElementById("pCompany").value;
+      const date = document.getElementById("pDate").value;
+      if (!company || !date) return;
+
+      try {
+        const rows = await personalRpc("personal_tours_list", { p_from: date, p_to: date }) || [];
+        const found = rows.find(t =>
+          String(t.company).trim().toLowerCase() === company.trim().toLowerCase()
+        );
+        fillPersonalForm(found || null);
+      } catch (err) {
+        personalError("Greška pri učitavanju: ", err);
+      }
+    }
+
+    function startEditPersonal(id) {
+      const tour = personalTours.find(t => String(t.id) === String(id));
+      if (!tour) return;
+
+      document.getElementById("pCompany").value = tour.company;
+      document.getElementById("pDate").value = tour.date;
+      fillPersonalForm(tour);
+      document.getElementById("pFormStatus").innerText = "Menjate izabranu personal turu.";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function cancelPersonalEdit() {
+      fillPersonalForm(null);
+      document.getElementById("pCount").value = "";
+      document.getElementById("pFormStatus").innerText =
+        "Izaberite kompaniju i datum. Ako postoji tura za taj dan, biće automatski učitana.";
+    }
+
+    async function savePersonal() {
+      if (!loggedIn) return alert("Morate biti ulogovani");
+      if (savingPersonal) return;
+
+      const id = document.getElementById("pEditId").value;
+      const company = document.getElementById("pCompany").value;
+      const date = document.getElementById("pDate").value;
+      const tours = document.getElementById("pCount").value;
+      const price = document.getElementById("pPrice").value;
+      const cash = document.getElementById("pCash").checked;
+
+      if (!company || !date || !tours || price === "") {
+        alert("Popunite kompaniju, datum, broj tura i cenu");
+        return;
+      }
+
+      const button = document.getElementById("pSaveBtn");
+      savingPersonal = true;
+      button.disabled = true;
+      button.innerText = "Šaljem...";
+
+      try {
+        await personalRpc("personal_tour_save", {
+          p_id: id ? Number(id) : null,
+          p_date: date,
+          p_company: company,
+          p_tours: Number(tours),
+          p_price: Number(price),
+          p_cash: cash
+        });
+
+        alert(id ? "Personal tura je izmenjena" : "Personal tura je sačuvana");
+        await loadPersonal();
+        await findPersonalForDate();
+      } catch (err) {
+        personalError("Greška pri čuvanju ture: ", err);
+      } finally {
+        savingPersonal = false;
+        button.disabled = false;
+        if (button.innerText === "Šaljem...") {
+          button.innerText = document.getElementById("pEditId").value ? "Sačuvaj izmenu" : "Sačuvaj novu turu";
+        }
+      }
+    }
+
+    async function deletePersonal(id) {
+      if (!loggedIn) return alert("Morate biti ulogovani");
+      if (!id) return alert("Nema izabrane ture za brisanje");
+      if (!confirm("Da li ste sigurni da želite da obrišete ovu personal turu?")) return;
+
+      try {
+        await personalRpc("personal_tour_delete", { p_id: Number(id) });
+        alert("Personal tura je obrisana");
+        await loadPersonal();
+        await findPersonalForDate();
+      } catch (err) {
+        personalError("Greška pri brisanju: ", err);
+      }
+    }
+
+    // ---------- PDF izvoz ----------
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("Ne mogu da učitam " + src));
+        document.head.appendChild(script);
+      });
+    }
+
+    async function ensurePdfMake() {
+      if (window.pdfMake && window.pdfMake.vfs) return;
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js");
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js");
+    }
+
+    function pdfDate(dateText) {
+      const [y, m, d] = String(dateText).split("-");
+      return `${d}.${m}.${y}.`;
+    }
+
+    async function exportPdf() {
+      if (!loggedIn) return alert("Morate biti ulogovani");
+
+      const period = getPersonalPeriod();
+      if (!period) return;
+
+      const source = document.getElementById("pdfSource").value;
+      const label = source === "personal" ? "Personal" : "Public";
+      const button = document.getElementById("pdfBtn");
+
+      button.disabled = true;
+      button.innerText = "Pravim PDF...";
+
+      try {
+        const rows = source === "personal"
+          ? await personalRpc("personal_tours_list", { p_from: period.from, p_to: period.to })
+          : await withRetry(() => sb.from("tours").select("*")
+              .gte("date", period.from).lte("date", period.to).order("date"));
+
+        if (!rows || rows.length === 0) {
+          alert("Nema tura za izabrani period");
+          return;
+        }
+
+        await ensurePdfMake();
+
+        rows.sort((a, b) =>
+          String(a.date).localeCompare(String(b.date)) ||
+          String(a.company).localeCompare(String(b.company), "sr")
+        );
+
+        const head = text => ({ text, bold: true, fillColor: "#e2e8f0" });
+        const right = text => ({ text, alignment: "right" });
+
+        const detailBody = [[
+          head("Datum"), head("Kompanija"), head("Ture"), head("Cena"), head("Ukupno"), head("Keš")
+        ]];
+
+        const byCompany = {};
+        let totalTours = 0;
+        let total = 0;
+
+        rows.forEach(t => {
+          const tours = Number(t.tours || 0);
+          const sum = Number(t.total || 0);
+
+          detailBody.push([
+            pdfDate(t.date),
+            String(t.company || ""),
+            right(tours.toLocaleString("sr-RS")),
+            right(money(t.price)),
+            right(money(sum)),
+            isCashTour(t) ? "Da" : ""
+          ]);
+
+          if (!byCompany[t.company]) byCompany[t.company] = { tours: 0, total: 0 };
+          byCompany[t.company].tours += tours;
+          byCompany[t.company].total += sum;
+          totalTours += tours;
+          total += sum;
+        });
+
+        const summaryBody = [[head("Kompanija"), head("Ture"), head("Ukupno")]];
+        Object.keys(byCompany)
+          .sort((a, b) => byCompany[b].total - byCompany[a].total)
+          .forEach(company => {
+            summaryBody.push([
+              company,
+              right(byCompany[company].tours.toLocaleString("sr-RS")),
+              right(money(byCompany[company].total))
+            ]);
+          });
+        summaryBody.push([
+          { text: "UKUPNO", bold: true },
+          { text: totalTours.toLocaleString("sr-RS"), bold: true, alignment: "right" },
+          { text: money(total), bold: true, alignment: "right" }
+        ]);
+
+        const doc = {
+          pageSize: "A4",
+          pageMargins: [32, 40, 32, 40],
+          defaultStyle: { fontSize: 10 },
+          footer: (page, count) => ({
+            text: `${page} / ${count}`, alignment: "right", fontSize: 8, margin: [0, 10, 32, 0]
+          }),
+          content: [
+            { text: `Ture — ${label}`, fontSize: 18, bold: true },
+            { text: `Period: ${pdfDate(period.from)} – ${pdfDate(period.to)}`, color: "#475569", margin: [0, 4, 0, 14] },
+            { text: "Zbir po kompanijama", fontSize: 13, bold: true, margin: [0, 0, 0, 6] },
+            { table: { headerRows: 1, widths: ["*", "auto", "auto"], body: summaryBody }, layout: "lightHorizontalLines" },
+            { text: "Sve ture", fontSize: 13, bold: true, margin: [0, 18, 0, 6] },
+            {
+              table: { headerRows: 1, widths: ["auto", "*", "auto", "auto", "auto", "auto"], body: detailBody },
+              layout: "lightHorizontalLines"
+            }
+          ]
+        };
+
+        window.pdfMake.createPdf(doc).download(`ture-${source}-${period.from}_${period.to}.pdf`);
+      } catch (err) {
+        personalError("Greška pri izvozu PDF-a: ", err);
+      } finally {
+        button.disabled = false;
+        button.innerText = "Izvezi PDF za izabrani period";
+      }
     }
 
     function escapeHtml(text) {
