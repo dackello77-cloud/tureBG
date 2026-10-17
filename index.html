@@ -793,6 +793,34 @@
         <button id="pCancelBtn" class="secondary hidden" onclick="cancelPersonalEdit()">Otkaži izmenu</button>
       </div>
 
+      <div class="daily-card">
+        <div class="daily-content">
+          <div class="daily-header">
+            <div>
+              <h2 class="daily-title">Dnevni pregled tura</h2>
+              <div id="pDailyDateLabel" class="daily-date"></div>
+            </div>
+            <div class="day-nav">
+              <button onclick="changePersonalDay(-1)" aria-label="Prethodni dan">&lsaquo;</button>
+              <button onclick="changePersonalDay(1)" aria-label="Sledeći dan">&rsaquo;</button>
+            </div>
+          </div>
+
+          <div class="daily-summary">
+            <div class="daily-metric">
+              <span>Ukupno tura</span>
+              <strong id="pDailyTotalTours">0</strong>
+            </div>
+            <div class="daily-metric">
+              <span>Ukupno RSD</span>
+              <strong id="pDailyTotalRsd">0 RSD</strong>
+            </div>
+          </div>
+
+          <div id="pDailyTourList" class="daily-list"></div>
+        </div>
+      </div>
+
       <div class="weekly-card">
         <div class="weekly-content">
           <div class="week-bar">
@@ -971,18 +999,21 @@
         `Ukupno tura: ${Number(tours || 0).toLocaleString("sr-RS")}<br>Ukupno RSD: ${money(total)}`;
     }
 
-    function renderDailyOverview(tours, date) {
+    const PUBLIC_DAILY_IDS = { label: "dailyDateLabel", tours: "dailyTotalTours", rsd: "dailyTotalRsd", list: "dailyTourList" };
+    const PERSONAL_DAILY_IDS = { label: "pDailyDateLabel", tours: "pDailyTotalTours", rsd: "pDailyTotalRsd", list: "pDailyTourList" };
+
+    function renderDailyOverview(tours, date, ids = PUBLIC_DAILY_IDS) {
       const dailyTours = tours || [];
-      const list = document.getElementById("dailyTourList");
+      const list = document.getElementById(ids.list);
       let totalTours = 0;
       let total = 0;
 
-      document.getElementById("dailyDateLabel").innerText = formatDisplayDate(date || selectedDay);
+      document.getElementById(ids.label).innerText = formatDisplayDate(date || selectedDay);
       list.innerHTML = "";
 
       if (dailyTours.length === 0) {
-        document.getElementById("dailyTotalTours").innerText = "0";
-        document.getElementById("dailyTotalRsd").innerText = money(0);
+        document.getElementById(ids.tours).innerText = "0";
+        document.getElementById(ids.rsd).innerText = money(0);
         list.innerHTML = `<p class="small-text">Nema unetih tura za ovaj dan.</p>`;
         return;
       }
@@ -1023,8 +1054,8 @@
           `;
         });
 
-      document.getElementById("dailyTotalTours").innerText = Number(totalTours || 0).toLocaleString("sr-RS");
-      document.getElementById("dailyTotalRsd").innerText = money(total);
+      document.getElementById(ids.tours).innerText = Number(totalTours || 0).toLocaleString("sr-RS");
+      document.getElementById(ids.rsd).innerText = money(total);
     }
 
     function sleep(ms) {
@@ -1597,7 +1628,10 @@
           document.getElementById("pDate").value = todayDate();
         }
 
+        if (!personalDay) personalDay = todayDate();
+
         loadPersonal();
+        loadPersonalDaily();
         findPersonalForDate();
       }
     }
@@ -1606,6 +1640,24 @@
 
     let personalTours = [];
     let savingPersonal = false;
+    let personalDay = "";
+
+    async function loadPersonalDaily() {
+      if (!loggedIn) return;
+      const day = personalDay || todayDate();
+
+      try {
+        const rows = await personalRpc("personal_tours_list", { p_from: day, p_to: day }) || [];
+        renderDailyOverview(rows, day, PERSONAL_DAILY_IDS);
+      } catch (err) {
+        personalError("Greška pri učitavanju dnevnog pregleda: ", err);
+      }
+    }
+
+    function changePersonalDay(direction) {
+      personalDay = addDaysToDateString(personalDay || todayDate(), direction);
+      loadPersonalDaily();
+    }
 
     async function personalRpc(fn, args) {
       const { data, error } = await sb.rpc(fn, {
@@ -1817,6 +1869,7 @@
 
         alert(id ? "Personal tura je izmenjena" : "Personal tura je sačuvana");
         await loadPersonal();
+        await loadPersonalDaily();
         await findPersonalForDate();
       } catch (err) {
         personalError("Greška pri čuvanju ture: ", err);
@@ -1838,6 +1891,7 @@
         await personalRpc("personal_tour_delete", { p_id: Number(id) });
         alert("Personal tura je obrisana");
         await loadPersonal();
+        await loadPersonalDaily();
         await findPersonalForDate();
       } catch (err) {
         personalError("Greška pri brisanju: ", err);
